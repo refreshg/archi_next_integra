@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(node --input-type=module -e ' *)",
+      "Bash(node scripts/bp-payload.js)",
+      "Bash(echo \"exit=$?\")",
+      "Bash(node scripts/set-status.js --help)",
+      "Bash(node scripts/discover.js)",
+      "Bash(git --version)",
+      "Bash(git ls-remote *)",
+      "Bash(git init *)",
+      "Bash(git config *)",
+      "Bash(git add *)",
+      "Bash(grep -E \"^\\\\.env$|token|secret\")"
+    ]
+  }
+}

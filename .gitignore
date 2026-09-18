@@ -1,0 +1,12 @@
+# საიდუმლოებები — webhook-ის ტოკენი არასდროს უნდა მოხვდეს repo-ში
+.env
+.env.*
+!.env.example
+
+node_modules/
+
+# discovery-ის გამოსავალი — ასახავს პორტალის ცოცხალ კონფიგურაციას
+# (ველები, პროდუქტების ნიმუშები), ამიტომ ლოკალურად რჩება
+docs/next-fields.md
+docs/archi-fields.md
+docs/discovery/

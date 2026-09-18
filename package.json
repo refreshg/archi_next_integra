@@ -1,0 +1,16 @@
+{
+  "name": "archi-next-integration",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Archi <-> Next Bitrix24 product status integration (discovery + test tooling for the BP webhook)",
+  "type": "module",
+  "engines": {
+    "node": ">=18.17"
+  },
+  "scripts": {
+    "discover": "node scripts/discover.js",
+    "set-status": "node scripts/set-status.js",
+    "bp-payload": "node scripts/bp-payload.js",
+    "check": "node --check lib/bitrix.js && node --check lib/env.js && node --check lib/statusUpdate.js && node --check scripts/discover.js && node --check scripts/set-status.js && node --check scripts/bp-payload.js"
+  }
+}

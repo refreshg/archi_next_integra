@@ -1,0 +1,36 @@
+{
+  "_": [
+    "ეს ფაილი ივსება `npm run discover`-ის შედეგის მიხედვით.",
+    "null მნიშვნელობა ნიშნავს: ჯერ არ ვიცით, discovery-ის შემდეგ ჩაიწერება.",
+    "საიდუმლო აქ არაფერია — ეს ფაილი უსაფრთხოდ იდება git-ში."
+  ],
+
+  "next": {
+    "_api": "crm = crm.product.* (ნაგულისხმევი) | catalog = catalog.product.* (property<ID> ფილტრით)",
+    "api": "crm",
+
+    "_archiIdField": "Next-ის პროდუქტის ველი, სადაც Archi-ს პროდუქტის ID წერია. მაგ: XML_ID | PROPERTY_123 | UF_ARCHI_ID",
+    "archiIdField": "XML_ID",
+
+    "_statusField": "სტატუსის dropdown ველის კოდი Next-ში. მაგ: PROPERTY_145",
+    "statusField": null,
+
+    "_statusValues": "dropdown-ის მნიშვნელობების რიცხვითი ID-ები (არა ტექსტი!)",
+    "statusValues": {
+      "free": null,
+      "reserved": null,
+      "sold": null
+    },
+
+    "_extraFilter": "არასავალდებულო დამატებითი ფილტრი ძებნისას, მაგ: { \"CATALOG_ID\": 21 }",
+    "extraFilter": {}
+  },
+
+  "archi": {
+    "_productIdField": "გარიგების ველი, სადაც პროდუქტის ID წერია. მაგ: UF_CRM_1700000000",
+    "productIdField": null,
+
+    "_stageToStatus": "გარიგების სტადიის ID -> სტატუსი. მაგ: { \"C1:PREPARATION\": \"reserved\", \"C1:WON\": \"sold\", \"C1:LOSE\": \"free\" }",
+    "stageToStatus": {}
+  }
+}
