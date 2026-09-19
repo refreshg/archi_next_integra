@@ -9,8 +9,8 @@
     "_api": "crm = crm.product.* (ნაგულისხმევი) | catalog = catalog.product.* (property<ID> ფილტრით)",
     "api": "crm",
 
-    "_archiIdField": "Next-ის პროდუქტის ველი, სადაც Archi-ს პროდუქტის ID წერია. მაგ: XML_ID | PROPERTY_123 | UF_ARCHI_ID",
-    "archiIdField": "XML_ID",
+    "_archiIdField": "Next-ის პროდუქტის ველი, სადაც Archi-ს პროდუქტის ID წერია. თუ ამ ველით ფილტრაცია ვერ მუშაობს box ვერსიაზე — იხ. SPEC, Standard-first",
+    "archiIdField": "UF_ARCHI_ID",
 
     "_statusField": "სტატუსის dropdown ველის კოდი Next-ში. მაგ: PROPERTY_145",
     "statusField": null,
@@ -30,7 +30,7 @@
     "_productIdField": "გარიგების ველი, სადაც პროდუქტის ID წერია. მაგ: UF_CRM_1700000000",
     "productIdField": null,
 
-    "_stageToStatus": "გარიგების სტადიის ID -> სტატუსი. მაგ: { \"C1:PREPARATION\": \"reserved\", \"C1:WON\": \"sold\", \"C1:LOSE\": \"free\" }",
+    "_stageToStatus": "მხოლოდ დოკუმენტაციისთვის — კოდი ამას არ კითხულობს. სტადია -> სტატუსი წყდება ბიზნეს პროცესის პირობის ბლოკში (იხ. DECISIONS D-5)",
     "stageToStatus": {}
   }
 }

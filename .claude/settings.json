@@ -12,7 +12,9 @@
       "Bash(git init *)",
       "Bash(git config *)",
       "Bash(git add *)",
-      "Bash(grep -E \"^\\\\.env$|token|secret\")"
+      "Bash(grep -E \"^\\\\.env$|token|secret\")",
+      "Bash(git remote *)",
+      "Bash(git check-ignore *)"
     ]
   }
 }
