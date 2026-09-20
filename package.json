@@ -1,8 +1,8 @@
 {
   "name": "archi-next-integration",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "description": "Archi <-> Next Bitrix24 product status integration (discovery + test tooling for the BP webhook)",
+  "description": "Archi <-> Next Bitrix24 two-way status sync: BP code, import tooling, reconciliation workflow",
   "type": "module",
   "engines": {
     "node": ">=18.17"

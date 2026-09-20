@@ -1,4 +1,4 @@
-<!-- last-synced: 2026-09-20, commit: 8ae8331 -->
+<!-- last-synced: 2026-09-20, commit: 6a98646 -->
 # CLAUDE.md — Archi ↔ Next Bitrix24 integration
 
 ## Stack
@@ -30,7 +30,8 @@ No test runner and no linter are configured. `npm run check` is the only automat
 - `scripts/` — `discover.js`, `set-status.js`, `bp-payload.js`, `parse-export.js`, `import-products.js`
 - `config/mapping.json` — field codes, catalog/section ids, status texts; committed, contains no secrets
 - `docs/` — PRD, SPEC, PLAN, ARCHITECTURE, DECISIONS, ARCHI-BP-SETUP, IMPORT-KOBULETI; `docs/*-fields.md` are generated and gitignored
-- `docs/bp/` — PHP for the Archi BP. `block.php` is the current one; the rest are earlier stages
+- `docs/bp/` — production PHP: `block.php` (Archi BP) and `block-next.php` (Next BP 39). Nothing else.
+- `docs/bp/archive/` — superseded drafts with **no safety guards**. Never paste these into a BP.
 - `files/` — source exports from Archi; gitignored (commercial data)
 - `.env` — webhook URLs and credentials; **gitignored, never committed**
 

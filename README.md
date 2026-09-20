@@ -1,4 +1,4 @@
-<!-- last-synced: 2026-09-20, commit: 8ae8331 -->
+<!-- last-synced: 2026-09-20, commit: 6a98646 -->
 # Archi ↔ Next — პროდუქტის სტატუსის ინტეგრაცია
 
 როცა **Archi**-ს ბიტრიქსში გარიგება გარკვეულ სტადიაზე გადადის, **Next**-ის ბიტრიქსში
@@ -216,6 +216,7 @@ node scripts/import-products.js files/PRODUCT_*.xls --execute # რეალუ�
 | [docs/CODES.md](docs/CODES.md) | **შედეგის კოდები — რა რას ნიშნავს და სად წერია** |
 | [docs/bp/block.php](docs/bp/block.php) | **PHP კოდი Archi-ს ბიზნეს პროცესისთვის** |
 | [docs/bp/block-next.php](docs/bp/block-next.php) | **PHP კოდი Next-ის BP 39 „Archi_integra"-სთვის** |
+| [docs/bp/archive/](docs/bp/archive/) | ⛔ მოძველებული დრაფტები — დაცვის გარეშე, არ გამოიყენო |
 | [n8n/compare-statuses.json](n8n/compare-statuses.json) | n8n workflow — ორივე კატალოგის შედარება |
 | [CLAUDE.md](CLAUDE.md) | ბრძანებები, კონვენციები, წესები |
 

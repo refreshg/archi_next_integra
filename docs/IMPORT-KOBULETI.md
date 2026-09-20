@@ -1,4 +1,4 @@
-<!-- last-synced: 2026-09-20, commit: 8ae8331 -->
+<!-- last-synced: 2026-09-20, commit: 6a98646 -->
 # იმპორტი — Kobuleti Beach Resort (სექცია 28)
 
 წყარო: `files/PRODUCT_20260920_86e2cc7e_6aaf6f4c19042.xls` — Archi-ს პროდუქტების ექსპორტი.

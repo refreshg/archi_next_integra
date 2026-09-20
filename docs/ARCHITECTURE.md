@@ -1,4 +1,4 @@
-<!-- last-synced: 2026-09-20, commit: 8ae8331 -->
+<!-- last-synced: 2026-09-20, commit: 6a98646 -->
 # Architecture
 
 Two independent Bitrix24 **box** portals. There is no server, no queue and no shared database.

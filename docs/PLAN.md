@@ -1,4 +1,4 @@
-<!-- last-synced: 2026-09-20, commit: 8ae8331 -->
+<!-- last-synced: 2026-09-20, commit: 6a98646 -->
 # Implementation plan
 
 Deadline: **2026-09-25**. Owner configures both portals by hand; this repo supplies exact parameters.
@@ -109,6 +109,11 @@ product's `PROPERTY_429` (status) and `PROPERTY_1702` (history).
       only, which is fine — the CLI is verification tooling, not a runtime path.
 
 ## Status
+
+Last session 2026-09-20: ორივე ბიზნეს პროცესი აეწყო, გამოქვეყნდა და დადასტურდა ორივე
+მიმართულებით; დაემატა ჯგუფური ჩაწერის ოთხი დაცვა და n8n-ის შედარების workflow.
+next: შეტყობინება `REJECTED_*`/`ERROR_*`-ზე. watch out: `docs/bp/`-ში მხოლოდ ორი
+პროდუქციული ფაილია; მოძველებული დრაფტები `docs/bp/archive/`-შია, დაცვის გარეშე.
 
 `Working` — every milestone except handover is complete. Both business processes are published and
 confirmed working by the owner on 2026-09-20, in both directions, with the blast-radius guards in place.
