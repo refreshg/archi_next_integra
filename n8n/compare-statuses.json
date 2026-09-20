@@ -1,0 +1,177 @@
+{
+  "name": "Archi - Next : სტატუსების შედარება",
+  "nodes": [
+    {
+      "parameters": {},
+      "name": "გაშვება",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        300
+      ],
+      "id": "ne18392e18390"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Archi — სექცია 585. მხოლოდ კითხვა.\nconst BASE    = 'https://crm.archi.ge/rest/1/ARCHI_TOKEN/';   // <- ტოკენი\nconst SECTION = 585;\n\n// Bitrix-ს PHP-სტილის ფრჩხილებიანი პარამეტრები სჭირდება: filter[SECTION_ID]=585\nconst qs = (obj, prefix, out) => {\n  out = out || [];\n  for (const [k, v] of Object.entries(obj)) {\n    const key = prefix ? prefix + '[' + k + ']' : k;\n    if (v === null || v === undefined) continue;\n    if (Array.isArray(v)) { v.forEach((x, i) => qs({ [i]: x }, key, out)); }\n    else if (typeof v === 'object') { qs(v, key, out); }\n    else { out.push(encodeURIComponent(key) + '=' + encodeURIComponent(String(v))); }\n  }\n  return out;\n};\n\nconst bitrix = async (base, method, params) => await this.helpers.httpRequest({\n  method: 'POST',\n  url: base + method + '.json',\n  headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8' },\n  body: qs(params).join('&'),\n  json: true,\n});\n\nconst fetchAll = async (base, params) => {\n  const rows = [];\n  let start = 0;\n  for (let guard = 0; guard < 500; guard++) {\n    const r = await bitrix(base, 'crm.product.list', Object.assign({}, params, { start }));\n    if (r.error) throw new Error(r.error + ': ' + (r.error_description || ''));\n    rows.push(...(r.result || []));\n    if (r.next === undefined || r.next === null) break;\n    start = r.next;\n  }\n  return rows;\n};\n\nconst rows = await fetchAll(BASE, {\n  filter: { SECTION_ID: SECTION },\n  select: ['ID', 'NAME', 'PROPERTY_376', 'PROPERTY_377', 'PROPERTY_429'],\n});\n\n// Archi-ზე სტატუსი სიის ტიპისაა — REST enum ID-ს აბრუნებს, არა ტექსტს\nconst STATUS = {\n  '810':  'გაყიდული',\n  '811':  'თავისუფალი',\n  '819':  'დაჯავშნილი',\n  '833':  'Not In Sale',\n  '1324': 'No Price',\n};\nconst val = (p) => (p && p.value !== undefined ? p.value : null);\n\nreturn rows.map((p) => ({ json: {\n  წყარო: 'archi',\n  archi_id: String(p.ID),\n  ბინის_ნომერი: val(p.PROPERTY_377) || p.NAME || '',\n  სართული: val(p.PROPERTY_376) || '',\n  სტატუსი: STATUS[val(p.PROPERTY_429)] || ('უცნობი #' + val(p.PROPERTY_429)),\n} }));"
+      },
+      "name": "Archi 585",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        180
+      ],
+      "id": "n417263686920"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Next — სექცია 28. მხოლოდ კითხვა.\nconst BASE    = 'https://bitrix.nextgroup.ge/rest/1/NEXT_TOKEN/';   // <- ტოკენი\nconst SECTION = 28;\n\n// Bitrix-ს PHP-სტილის ფრჩხილებიანი პარამეტრები სჭირდება: filter[SECTION_ID]=585\nconst qs = (obj, prefix, out) => {\n  out = out || [];\n  for (const [k, v] of Object.entries(obj)) {\n    const key = prefix ? prefix + '[' + k + ']' : k;\n    if (v === null || v === undefined) continue;\n    if (Array.isArray(v)) { v.forEach((x, i) => qs({ [i]: x }, key, out)); }\n    else if (typeof v === 'object') { qs(v, key, out); }\n    else { out.push(encodeURIComponent(key) + '=' + encodeURIComponent(String(v))); }\n  }\n  return out;\n};\n\nconst bitrix = async (base, method, params) => await this.helpers.httpRequest({\n  method: 'POST',\n  url: base + method + '.json',\n  headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8' },\n  body: qs(params).join('&'),\n  json: true,\n});\n\nconst fetchAll = async (base, params) => {\n  const rows = [];\n  let start = 0;\n  for (let guard = 0; guard < 500; guard++) {\n    const r = await bitrix(base, 'crm.product.list', Object.assign({}, params, { start }));\n    if (r.error) throw new Error(r.error + ': ' + (r.error_description || ''));\n    rows.push(...(r.result || []));\n    if (r.next === undefined || r.next === null) break;\n    start = r.next;\n  }\n  return rows;\n};\n\nconst rows = await fetchAll(BASE, {\n  filter: { SECTION_ID: SECTION },\n  select: ['ID', 'NAME', 'PROPERTY_61', 'PROPERTY_63', 'PROPERTY_64', 'PROPERTY_546'],\n});\n\nconst val = (p) => (p && p.value !== undefined ? p.value : null);\n\nreturn rows.map((p) => ({ json: {\n  წყარო: 'next',\n  archi_id: val(p.PROPERTY_546) ? String(val(p.PROPERTY_546)) : '',\n  next_id: String(p.ID),\n  ბინის_ნომერი: val(p.PROPERTY_63) || p.NAME || '',\n  სართული: val(p.PROPERTY_61) || '',\n  სტატუსი: val(p.PROPERTY_64) || '',\n} }));"
+      },
+      "name": "Next 28",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        420
+      ],
+      "id": "n4e6578742032"
+    },
+    {
+      "parameters": {
+        "mode": "append",
+        "numberInputs": 2
+      },
+      "name": "გაერთიანება",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        500,
+        300
+      ],
+      "id": "ne18392e18390"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Archi-ს სტატუსი -> რას უნდა შეესაბამებოდეს Next-ში.\n// null = Next-ში განზრახ არ აიტვირთა, ანუ შესადარებელი არ არის.\nconst EXPECT = {\n  'თავისუფალი':  'თავისუფალი',\n  'გაყიდული':    'გაყიდული',\n  'დაჯავშნილი':  'ფასიანი ჯავშანი',\n  'Not In Sale': null,\n  'No Price':    null,\n};\n\nconst items = $input.all().map((i) => i.json);\nconst archi = new Map();\nconst next  = new Map();\nfor (const r of items) {\n  if (r.წყარო === 'archi') archi.set(r.archi_id, r);\n  else if (r.archi_id) next.set(r.archi_id, r);\n  else next.set('next_only_' + r.next_id, r);\n}\n\nconst out = [];\n\nfor (const [id, a] of archi) {\n  const n = next.get(id);\n  const expected = EXPECT[a.სტატუსი];\n  let შედარდა, ემთხვევა, შედეგი;\n\n  if (expected === null && !n) {\n    შედარდა = false; ემთხვევა = null;\n    შედეგი = 'არ შედარდა — Next-ში განზრახ არ არის';\n  } else if (expected === null && n) {\n    შედარდა = true; ემთხვევა = false;\n    შედეგი = 'Archi-ში გასაყიდი არაა, Next-ში კი არის';\n  } else if (!n) {\n    შედარდა = true; ემთხვევა = false;\n    შედეგი = 'აკლია Next-ში';\n  } else {\n    შედარდა = true; ემთხვევა = (n.სტატუსი === expected);\n    შედეგი = ემთხვევა ? 'ემთხვევა' : 'არ ემთხვევა';\n  }\n\n  out.push({ json: {\n    აიდი: id,\n    Next_ID: n ? n.next_id : '—',\n    ბინის_ნომერი: a.ბინის_ნომერი,\n    სართული: a.სართული,\n    Archi_სტატუსი: a.სტატუსი,\n    Next_სტატუსი: n ? n.სტატუსი : '—',\n    შედეგი: შედეგი,\n    შედარდა: შედარდა,\n    ემთხვევა: ემთხვევა,\n  } });\n}\n\nfor (const [key, n] of next) {\n  if (key.indexOf('next_only_') === 0 || !archi.has(key)) {\n    out.push({ json: {\n      აიდი: n.archi_id || '—',\n      Next_ID: n.next_id,\n      ბინის_ნომერი: n.ბინის_ნომერი,\n      სართული: n.სართული,\n      Archi_სტატუსი: '—',\n      Next_სტატუსი: n.სტატუსი,\n      შედეგი: 'Archi-ში არ არის',\n      შედარდა: true,\n      ემთხვევა: false,\n    } });\n  }\n}\n\n// ჯერ პრობლემები, მერე დამთხვეული, ბოლოს შეუდარებელი\nconst rank = (r) => (r.json.ემთხვევა === false ? 0 : r.json.ემთხვევა === true ? 1 : 2);\nout.sort((x, y) => rank(x) - rank(y)\n  || String(x.json.ბინის_ნომერი).localeCompare(String(y.json.ბინის_ნომერი)));\nreturn out;"
+      },
+      "name": "შედარება",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        740,
+        300
+      ],
+      "id": "ne183a8e18394"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const rows = $input.all().map((i) => i.json);\n\nconst შედარებული = rows.filter((r) => r.შედარდა);\nconst ok         = შედარებული.filter((r) => r.ემთხვევა === true);\nconst bad        = შედარებული.filter((r) => r.ემთხვევა === false);\nconst skip       = rows.filter((r) => !r.შედარდა);\n\nconst byResult = {};\nfor (const r of rows) byResult[r.შედეგი] = (byResult[r.შედეგი] || 0) + 1;\n\nconst ხაზები = bad.map((r) =>\n  'ბინა ' + r.ბინის_ნომერი +\n  ' (სართ. ' + r.სართული + ', ID ' + r.აიდი + ')' +\n  ' : Archi = ' + r.Archi_სტატუსი +\n  '  |  Next = ' + r.Next_სტატუსი +\n  '  ->  ' + r.შედეგი\n);\n\nreturn [{ json: {\n  შედარდა: შედარებული.length,\n  ემთხვევა: ok.length,\n  არ_ემთხვევა: bad.length,\n  არ_შედარდა: skip.length,\n  სულ_Archi: rows.filter((r) => r.Archi_სტატუსი !== '—').length,\n  სულ_Next: rows.filter((r) => r.Next_სტატუსი !== '—').length,\n  დაშლილი: byResult,\n  შეუსაბამობები: bad.map((r) => ({\n    აიდი: r.აიდი,\n    Next_ID: r.Next_ID,\n    ბინის_ნომერი: r.ბინის_ნომერი,\n    სართული: r.სართული,\n    Archi_სტატუსი: r.Archi_სტატუსი,\n    Next_სტატუსი: r.Next_სტატუსი,\n    შედეგი: r.შედეგი,\n  })),\n  სია_ტექსტად: bad.length ? ხაზები.join(String.fromCharCode(10)) : 'შეუსაბამობა არ არის',\n  თარიღი: new Date().toISOString(),\n} }];"
+      },
+      "name": "შეჯამება",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        980,
+        300
+      ],
+      "id": "ne183a8e18394"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Archi — ჩანაწერი უნივერსალურ სიაში 228 (Archi_Next_log).\n// ერთადერთი ადგილი მთელ workflow-ში, სადაც ჩაწერა ხდება.\nconst BASE   = 'https://crm.archi.ge/rest/1/ARCHI_TOKEN/';   // <- ტოკენი\nconst IBLOCK = 228;\nconst ჩაწერა = true;   // false -> ველებს ამზადებს, ბიტრიქსში არაფერს წერს\n\n// ველების კოდები სიიდან 228 (წაკითხულია lists.field.get-ით)\nconst F = {\n  დრო:         'PROPERTY_1703',   // გაშვების დრო   S:DateTime\n  შედარდა:     'PROPERTY_1704',   // შედარდა        N\n  ემთხვევა:    'PROPERTY_1705',   // ემთხვევა       N\n  არ_ემთხვევა: 'PROPERTY_1706',   // არ ემთხვევა    N\n  პრობლემაა:   'PROPERTY_1707',   // პრობლემაა      L\n  არ_შედარდა:  'PROPERTY_1708',   // არ შედარდა     N\n  სულ_Archi:   'PROPERTY_1709',   // სულ Archi      N\n  სულ_Next:    'PROPERTY_1710',   // სულ Next       N\n  სია:         'DETAIL_TEXT',     // შეუსაბამობების სია\n};\nconst კი = 2489, არა = 2490;   // PROPERTY_1707-ის მნიშვნელობები\n\nconst qs = (obj, prefix, out) => {\n  out = out || [];\n  for (const [k, v] of Object.entries(obj)) {\n    const key = prefix ? prefix + '[' + k + ']' : k;\n    if (v === null || v === undefined) continue;\n    if (Array.isArray(v)) { v.forEach((x, i) => qs({ [i]: x }, key, out)); }\n    else if (typeof v === 'object') { qs(v, key, out); }\n    else { out.push(encodeURIComponent(key) + '=' + encodeURIComponent(String(v))); }\n  }\n  return out;\n};\n\nconst s = $input.first().json;\n\n// ბიტრიქსის თარიღის ფორმატი: DD.MM.YYYY HH:MM:SS\nconst d  = new Date();\nconst p2 = (n) => String(n).padStart(2, '0');\nconst თარიღი = p2(d.getDate()) + '.' + p2(d.getMonth() + 1) + '.' + d.getFullYear();\nconst დრო    = p2(d.getHours()) + ':' + p2(d.getMinutes()) + ':' + p2(d.getSeconds());\n\nconst NLC = String.fromCharCode(10);\nconst სია = s.არ_ემთხვევა > 0\n  ? s.სია_ტექსტად\n  : 'შეუსაბამობა არ არის' + NLC + NLC + 'დაშლილი: ' + JSON.stringify(s.დაშლილი);\n\nconst fields = {};\nfields['NAME']        = 'შედარება ' + თარიღი + ' ' + დრო;\nfields[F.დრო]         = თარიღი + ' ' + დრო;\nfields[F.შედარდა]     = s.შედარდა;\nfields[F.ემთხვევა]    = s.ემთხვევა;\nfields[F.არ_ემთხვევა] = s.არ_ემთხვევა;\nfields[F.არ_შედარდა]  = s.არ_შედარდა;\nfields[F.სულ_Archi]   = s.სულ_Archi;\nfields[F.სულ_Next]    = s.სულ_Next;\nfields[F.პრობლემაა]   = s.არ_ემთხვევა > 0 ? კი : არა;\nfields[F.სია]         = სია;\n\nif (!ჩაწერა) {\n  return [{ json: { რეჟიმი: 'სატესტო — ბიტრიქსში არაფერი ჩაწერილა', fields } }];\n}\n\nconst res = await this.helpers.httpRequest({\n  method: 'POST',\n  url: BASE + 'lists.element.add.json',\n  headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8' },\n  body: qs({\n    IBLOCK_TYPE_ID: 'lists',\n    IBLOCK_ID: IBLOCK,\n    ELEMENT_CODE: 'cmp-' + d.getTime(),\n    FIELDS: fields,\n  }).join('&'),\n  json: true,\n});\n\nif (res.error) throw new Error('lists.element.add: ' + res.error + ' — ' + (res.error_description || ''));\n\nreturn [{ json: {\n  ჩაიწერა: true,\n  ელემენტის_ID: res.result,\n  სათაური: fields['NAME'],\n  შედარდა: s.შედარდა,\n  ემთხვევა: s.ემთხვევა,\n  არ_ემთხვევა: s.არ_ემთხვევა,\n  პრობლემაა: s.არ_ემთხვევა > 0 ? 'კი' : 'არა',\n} }];"
+      },
+      "name": "Archi ლოგი 228",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1220,
+        300
+      ],
+      "id": "n417263686920"
+    }
+  ],
+  "connections": {
+    "გაშვება": {
+      "main": [
+        [
+          {
+            "node": "Archi 585",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Next 28",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Archi 585": {
+      "main": [
+        [
+          {
+            "node": "გაერთიანება",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Next 28": {
+      "main": [
+        [
+          {
+            "node": "გაერთიანება",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "გაერთიანება": {
+      "main": [
+        [
+          {
+            "node": "შედარება",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "შედარება": {
+      "main": [
+        [
+          {
+            "node": "შეჯამება",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "შეჯამება": {
+      "main": [
+        [
+          {
+            "node": "Archi ლოგი 228",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}
