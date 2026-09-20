@@ -1,4 +1,4 @@
-<!-- last-synced: 2026-09-20, commit: 2113838 -->
+<!-- last-synced: 2026-09-20, commit: 8ae8331 -->
 # Implementation plan
 
 Deadline: **2026-09-25**. Owner configures both portals by hand; this repo supplies exact parameters.
@@ -50,32 +50,69 @@ Owner builds this by hand; `docs/bp/block.php` is the reference code.
 - [x] Store the outcome in BP variables `Logstat` (short code) and `Send_log` (full report).
 - [x] Read the product dynamically from the deal product rows; reject deals with 2+ products. (D-12, D-13)
 - [x] Never rewrite an identical status; distinguish `REJECTED_SAME` from `UNCHANGED`. (D-13)
-- [ ] **Paste the current `docs/bp/block.php` into the BP and publish it.**
-      *The last live run used the static-id version.*
-- [ ] Add the "Set variable" block per branch and wire the automation rules to the chosen stages.
+- [x] Paste `docs/bp/block.php` into the BP and publish it.
+- [x] Add the "Set variable" block; wire the automation rules to the chosen stages.
+- [x] Write the same history line into the Archi product (`PROPERTY_1702`). (D-22)
+- [x] Four blast-radius guards and the `REJECTED_UNSAFE` code on both sides. (D-21)
 - [ ] Error branch: on `REJECTED_*` / `NOT_FOUND` / `ERROR_*` → timeline comment + notify the responsible user. (AC-4, AC-5)
       *Deferred by the owner 2026-09-20. The outcome reaches the BP journal, `Logstat` and `Send_log` only.*
       *Branch conditions are written out in `docs/CODES.md`.*
-- [ ] End-to-end run on a test deal: stage change → status visible in Next within 1 minute. (AC-7)
+- [x] End-to-end run on a test deal: confirmed working by the owner 2026-09-20. (AC-7)
+- [x] Ownership protection: a status set by the other side is never overwritten. (D-17, D-18)
+- [x] Fourth status `უფასო ჯავშანი` (`hold`) added and protected. (D-18)
+
+## Milestone 2b — Mirror process on Next — in progress
+
+- [x] Create BP **39 "Archi_integra"** on `crm.deal` in Next: Start → Set Variables → PHP Code → End.
+- [x] Write to the same `PROPERTY_547`, signed `Next BP: <name> #<id>`. (D-15)
+- [x] Resolve the acting user (`$GLOBALS[USER]`, fallback `crm.deal.get` → `MODIFIED_BY_ID`).
+- [x] Fall back to `HttpClient` where `curl_init()` is unavailable in the BP sandbox. (D-16)
+- [x] Enable `$RESPECT_ARCHI = true` — full symmetry. (D-18)
+- [x] Paste `docs/bp/block-next.php` into BP 39 and publish it.
+- [x] Write the Archi status (`PROPERTY_429`) from the Next BP, with the enum map. (D-22)
+- [x] End-to-end symmetry test — confirmed working by the owner 2026-09-20.
+
+## Milestone 2c — Reconciliation workflow ✅ done 2026-09-20
+
+- [x] n8n workflow `n8n/compare-statuses.json` — 7 nodes, reads both catalogues, compares statuses.
+- [x] Read-only on both portals: `crm.product.list` filtered to section 585 / 28, nothing else.
+- [x] Summary separates `შედარდა` (275) from `არ_შედარდა` (550 `Not In Sale`).
+- [x] Mismatch list in both object and plain-text form.
+- [x] Log each run into Archi universal list **228 `Archi_Next_log`** (`lists.element.add`).
+- [x] ~~Schedule trigger~~ — *owner decided 2026-09-20: manual runs for now.*
+- [x] ~~n8n retention~~ — *owner decided 2026-09-20: Archi list 228 is the durable record;
+      n8n execution history stays at its default and may be pruned.*
 
 ## Milestone 3 — Handover
 
-- [ ] Rotate the Next webhook token (seen in several places during setup) and update `.env` + the BP.
+- [x] ~~Rotate the webhook tokens~~ — *owner decided 2026-09-20 to leave them as they are for now.*
+      *Three live tokens exist: two Archi, one Next. They sit in both BP templates, in n8n and in `.env`.*
+      *Rotating means updating all four places at once — worth scheduling before handover.*
+- [x] CLI learned the `hold` status — `STATUS_KEYS` and `config/mapping.json` now carry four keys.
+- [ ] Verify the exact spelling of `უფასო ჯავშანი` in Next (SPEC Open question 11).
 - [x] ~~Record the stage → `status` mapping in this repo~~ — *owner decided 2026-09-20 to keep it in the BP only.*
 - [ ] Investigate the 6.5–7.5 s per-run latency from the Archi box (Next answers in ~0.4 s).
-- [ ] Update `README.md` with the final field codes and the BP description.
-- [ ] Run `/docs-sync` so SPEC, PLAN and DECISIONS match what was actually configured.
+- [x] Update `README.md` with the final field codes and the BP description.
+- [x] Run `/docs-sync` — last run 2026-09-20, after both BPs were confirmed working.
 - [ ] One week of observation: check the BP journal daily for failures.
 
-## Milestone 4 — Next → Archi (blocked)
+## Milestone 4 — Next → Archi ✅ done 2026-09-20
 
-Cannot be planned until PRD Open question 2 is answered (what triggers on Next, what changes on Archi).
+PRD Open question 2 is answered: the trigger is BP 39 on the Next side, and the targets are the Archi
+product's `PROPERTY_429` (status) and `PROPERTY_1702` (history).
 
-- [ ] Define the trigger on the Next side and the target field on the Archi side.
-- [ ] Owner creates the inbound webhook on Archi (scope `crm`).
-- [ ] Extend `lib/statusUpdate.js` with the reverse direction, or document it as BP-only if no code is needed.
+- [x] Define the trigger on the Next side and the target fields on the Archi side. (D-22)
+- [x] Owner created the Archi webhook; scopes `crm`, `lists`, `bizproc`.
+- [x] Next BP writes the Archi status using the enum map, and the history unconditionally.
+- [x] Guarded by the id check and the apartment-number cross-check. (D-21)
+- [ ] `lib/statusUpdate.js` still only knows the Archi → Next direction. The reverse lives in the BP
+      only, which is fine — the CLI is verification tooling, not a runtime path.
 
 ## Status
 
-`In progress` — Milestones 0, 1 and 1b complete. Milestone 2 is one step from working end to end:
-the dynamic `block.php` still has to be pasted into the BP and published.
+`Working` — every milestone except handover is complete. Both business processes are published and
+confirmed working by the owner on 2026-09-20, in both directions, with the blast-radius guards in place.
+The reconciliation workflow runs manually and logs each run into Archi list 228.
+
+What remains in Milestone 3: a week of observation, the Archi-box latency question, and — deferred by
+the owner — token rotation. Also open: notifying the responsible user on `REJECTED_*` and `ERROR_*`.

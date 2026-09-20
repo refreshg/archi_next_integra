@@ -1,8 +1,9 @@
-<!-- last-synced: 2026-09-20, commit: 2113838 -->
+<!-- last-synced: 2026-09-20, commit: 8ae8331 -->
 # Architecture
 
-Two independent Bitrix24 **box** portals, joined by two HTTP calls per run. There is no server, no queue
-and no shared database. The only runtime component is the business process inside the Archi portal.
+Two independent Bitrix24 **box** portals. There is no server, no queue and no shared database.
+Two runtime components: the business process in Archi and its mirror in Next (template 39). Both write
+to the same product field `PROPERTY_547`, and each reads the other's signature to decide ownership (D-17).
 
 ## Components
 
@@ -10,7 +11,8 @@ and no shared database. The only runtime component is the business process insid
 |---|---|---|
 | Deal automation rule | Archi portal | Fires the business process when a deal enters a configured stage |
 | Business process | Archi portal | Sets the `status` variable per branch, then runs the PHP Code activity |
-| **PHP Code activity** | Archi portal | The whole integration: reads the deal product rows, calls Next twice over `curl`, writes `Logstat` + `Send_log`. Reference copy: `docs/bp/block.php` |
+| **PHP Code activity** | Archi portal | Reads the deal product rows, calls Next twice over `curl`, writes `Logstat` + `Send_log`. Reference copy: `docs/bp/block.php` |
+| **Next BP 39 "Archi_integra"** | Next portal | The mirror process: same structure, same history field, signed `Next BP: <name> #<id>`. Uses `curl` or `HttpClient` (D-16). Reference copy: `docs/bp/block-next.php` |
 | Inbound webhook | Next portal | Authenticates the call; exposes `crm.*` REST under one portal user (scope `crm`) |
 | `lib/bitrix.js` | this repo (CLI only) | REST client: param encoding, `batch`, retry, error typing |
 | `lib/statusUpdate.js` | this repo (CLI only) | Builds the find+update batch; single source of truth for the payload shape |
@@ -70,6 +72,8 @@ flowchart TD
 | BP → Next (2) | HTTPS POST | static webhook token | `crm.product.update`, status + history | status omitted when unchanged |
 | BP → owner | internal | — | `Logstat`, `Send_log`, BP journal | the audit trail on the Archi side |
 | Next product | stored | — | one `PROPERTY_547` line per run | the audit trail on the Next side |
+| BP → Archi product | HTTPS POST | Archi webhook token | `crm.product.get` then `crm.product.update`, both by explicit id | four guards; nothing is written unless all pass |
+| Archi product | stored | — | `PROPERTY_1702` history, `PROPERTY_429` status (Next BP only) | the audit trail on the Archi side |
 
 ## Extension points
 
@@ -83,8 +87,12 @@ flowchart TD
   today; `XML_ID` holds the same value as a spare.
 - **Import target** — `next.sectionId` / `next.catalogId`. `import-products.js` reads the section name
   from the portal, so another project needs no code change.
-- **Direction** — a reverse (Next → Archi) flow reuses `lib/bitrix.js` unchanged and needs a second
-  mapping section plus an inbound webhook on Archi. Blocked on PRD Open question 2.
+- **Direction** — Next→Next is implemented (BP 39). A true Next → **Archi** write still needs an inbound
+  webhook on Archi and a defined target. Blocked on PRD Open question 2.
+- **Symmetry switch** — `$RESPECT_ARCHI` in `block-next.php`. `true` today: neither side overwrites the
+  other's protected status. `false` makes Next the authority on its own catalogue (D-18).
+- **Blast radius** — every write is `crm.product.update` with an explicit `id`. Bitrix has no
+  filter-based product update, so a broken filter cannot turn into a mass overwrite (D-21).
 - **Middleware** — if retry and central logging become necessary, the same two calls move into a service
   without any change on the Next side. See D-1.
 

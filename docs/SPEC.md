@@ -1,4 +1,4 @@
-<!-- last-synced: 2026-09-20, commit: 2113838 -->
+<!-- last-synced: 2026-09-20, commit: 8ae8331 -->
 # Technical spec — product status sync (Archi → Next)
 
 Both portals are Bitrix24 **box / self-hosted**. Next: `https://bitrix.nextgroup.ge`. Archi: URL TBD.
@@ -17,16 +17,44 @@ and its **PHP Code** activity (D-11). Next catalog: `CATALOG_ID 14`, section `28
 | `PROPERTY_547` | product property, text/HTML | no | **EXISTING**, titled `Interga_History` | Per-product audit trail written on every request. Holds 8000+ chars. |
 | `XML_ID` | string | no | standard | The import also writes the Archi id here as a secondary key |
 
+### Archi — CRM product (`crm.product`)
+
+| Field | Type | Written by | Notes |
+|---|---|---|---|
+| `PROPERTY_377` | string | — | ბინის ნომერი. Read-only, used as the cross-portal identity check |
+| `PROPERTY_429` | **list (L)** | Next BP only | სტატუსი. REST carries the **enum id**, not the label |
+| `PROPERTY_1702` | string, HTML | both BPs | `archi_next_history` — same format as Next's `PROPERTY_547` |
+
+Archi status enum, derived by reconciling the export (id + label) with the API (id + enum) across
+all 825 rows, plus one value supplied by the owner:
+
+| enum | label | mapped from Next |
+|---|---|---|
+| `811` | თავისუფალი | თავისუფალი |
+| `819` | დაჯავშნილი | **უფასო ჯავშანი** and **ფასიანი ჯავშანი** |
+| `810` | გაყიდული | გაყიდული |
+| `833` | Not In Sale | — |
+| `1324` | No Price | — |
+
+> Both bookings map to `819`. This is not a loss: **Archi has a single booking state at this stage**
+> and does not split it into paid and free. The distinction lives on the Next side and in the
+> history on both portals. A separate Archi value would be a one-line change to `$ARCHI_STATUS`.
+
 The status is a **string property**: the Georgian label itself is written, verbatim. There is no enum id
 and no platform-side validation — a typo silently creates a new status. Values live in `config/mapping.json`.
 
 | Status key | Written into `PROPERTY_64` | Protected? |
 |---|---|---|
 | `free` | თავისუფალი | no |
+| `hold` | უფასო ჯავშანი | **yes** |
 | `reserved` | ფასიანი ჯავშანი | yes |
 | `sold` | გაყიდული | yes |
 
-A fourth value, `ინტერესი`, exists on the portal outside section 28 and is not managed by this integration.
+`ინტერესი` also exists on the portal (1 product, section 20) and is **not** managed or protected here.
+`უფასო ჯავშანი` is configured but **not yet present on any product** — its exact spelling is unverified (D-18).
+
+> ⚠️ The CLI tooling (`lib/statusUpdate.js` `STATUS_KEYS`, `config/mapping.json` `statusValues`) still
+> knows only three keys. `npm run set-status` cannot write `უფასო ჯავშანი`. See `## Needs my decision`.
 
 ### Archi — CRM deal (`crm.deal`)
 
@@ -56,6 +84,12 @@ No entity is created or deleted on either side. No new model, no new table.
 | BL-8 | any | `status` variable empty or unrecognised | nothing written | `BAD_STATUS` | — |
 | BL-9 | any | deal id cannot be resolved | nothing written | `NO_DEAL` | — |
 | BL-10 | any | deal has no product attached | nothing written | `NO_PRODUCT` | — |
+
+| BL-11 | Next BP 39 runs | same conditions as BL-1..3, but on the Next side | write status + history, signed `Next BP: <name> #<id>` | `UPDATED` | — |
+| BL-12 | either side | current status is protected **and** was set by the other side | nothing written; history line records the refusal | `REJECTED_FOREIGN` | — |
+| BL-13 | either side | product id is 0/empty, or a lookup returns more than one row, or the returned row does not match what was asked for | **nothing is written anywhere** | `REJECTED_UNSAFE` | — |
+| BL-14 | Next BP, after a successful Next write | Archi product id known, ids match, apartment numbers match | write `PROPERTY_429` (status, only when Next changed) + `PROPERTY_1702` (history, always) | — | — |
+| BL-15 | Archi BP, after a successful Next write | Archi product id known | write `PROPERTY_1702` only — never the Archi status | — | — |
 
 Every run, including every rejection, appends one line to `PROPERTY_547` on the Next product
 (except BL-7..BL-10, which abort before any REST call). BL-6 and BL-7 are new — see D-13.
@@ -95,6 +129,34 @@ No custom view is delivered. Surfaces touched:
 | Product card | Next | `სტატუსი` changes; `Interga_History` gains a line. No layout change |
 | BP designer | Archi | One sequential BP: Start → Set variable → PHP Code → End |
 
+## Blast-radius control
+
+The owner reported a past incident: code failed to find a product by id, Bitrix returned the whole
+catalogue, and every product had its status overwritten. That failure mode was reproduced here:
+
+| filter | rows returned | `total` |
+|---|---|---|
+| `PROPERTY_546 = 5335768` | 1 | 1 |
+| `PROPERTY_546 = ''` | 50 | **870** |
+| `ID = ''` (Archi) | 50 | **65 760** |
+| `PROPERTY_546 = 0` | 0 | 0 |
+
+Bitrix silently drops an empty filter value. `0` is safe; an empty string is not.
+
+Four guards, all producing `REJECTED_UNSAFE` and writing nothing (D-21):
+
+1. `$id > 0` before any lookup
+2. exactly one row and `total === 1`
+3. the returned row carries the id that was asked for
+4. the apartment number matches on both portals
+
+Structural guarantee on top of these: every write goes through `crm.product.update`, a
+single-element method that takes `id` and cannot accept a filter.
+
+Verified 2026-09-20 against live data: 825 apartments in Archi section 585 carry 825 distinct
+apartment numbers, and all 275 Next products link to exactly one existing Archi product with a
+matching number — no empty links, no duplicates, no mismatches.
+
 ## Security
 
 - Auth is a Bitrix **inbound webhook** on Next: a static token in the URL, acting as one portal user.
@@ -130,10 +192,24 @@ Reference implementation: `docs/bp/block.php`. `scripts/set-status.js` performs 
 from the CLI for verification; `scripts/bp-payload.js` still prints the older `batch` form and is now
 only useful for a webhook-activity setup.
 
-### Next → Archi (planned, not designed)
+### Next BP 39 → Next REST (same portal)
 
-In scope per PRD but blocked: the trigger on the Next side and the target field on the Archi side are
-undefined. The owner will create the inbound webhook on Archi. See PRD Open question 2.
+| Property | Value |
+|---|---|
+| Direction | Next → Next (the product lives in the same portal) |
+| Caller | BP **PHP Code** activity in template **39 "Archi_integra"** |
+| Transport | `curl` if available, otherwise `BitrixMainWebHttpClient` — D-16 |
+| Product lookup | none — `CCrmProductRow::LoadRows` already returns the Next product id |
+| Extra calls | `crm.deal.get` and `user.get` to resolve the acting user |
+| Signature | `Next BP: <name> #<id>` |
+| Status validation | none — whatever the `status` variable holds is written verbatim |
+
+Reference implementation: `docs/bp/block-next.php`.
+
+### Next → Archi (still not designed)
+
+Writing back into Archi remains out of reach: no Archi webhook and no defined trigger or target field.
+BP 39 only writes to the Next product. See PRD Open question 2.
 
 ## Bitrix specifics
 
@@ -147,6 +223,10 @@ undefined. The owner will create the inbound webhook on Archi. See PRD Open ques
   (`CCrmProductRow`), not REST. No Archi webhook is required for the integration itself.
 - No event subscriptions (`ONCRMPRODUCTUPDATE` etc.) — they require an OAuth application, rejected in D-5.
 - Rate limits are not a concern at ≤10 runs/day.
+- **The two boxes differ.** Archi runs the older `codeactivity.php` eval and has `curl`. Next runs
+  `BitrixBizprocInternalServiceEvalService`, where `curl_init()` is unavailable — hence D-16.
+- `bizproc` scope was added to the Next webhook on 2026-09-20. `bizproc.workflow.template.list` works;
+  the template **body** is not exposed by REST, so BP contents cannot be inspected remotely.
 
 ## Migration / data
 
@@ -202,6 +282,18 @@ No automated test suite exists. Verification is manual against the real portals 
   and `Not In Sale` has no Next equivalent). D-10, still open.
 - **2026-09-20** — history entries are separated by `<br>`, not newlines; the card renders HTML.
 
+- **2026-09-20 (later)** — a fourth managed status, `უფასო ჯავშანი`, was added and made protected. The
+  spec previously described exactly three. D-18.
+- **2026-09-20 (later)** — ownership is derived from the **last change line whatever its signature**, not
+  from the last `Archi BP` line. The earlier parser skipped Next lines and could wrongly claim ownership. D-17.
+- **2026-09-20 (later)** — a second business process now exists, on the Next side (template 39). The spec
+  previously assumed only Archi wrote to the product. D-15.
+- **2026-09-20 (later)** — `curl` is not available inside the Next BP sandbox; `HttpClient` is used there. D-16.
+- **2026-09-20 (later)** — the Archi product is now a write target too: `PROPERTY_1702` from both BPs,
+  `PROPERTY_429` from the Next BP only. The spec previously said nothing was ever written to Archi. D-22.
+- **2026-09-20 (later)** — the Next BP no longer uses `crm.product.list` at all; it reads by id with
+  `crm.product.get`. Four guards and the `REJECTED_UNSAFE` code were added on both sides. D-21.
+
 ## Open questions
 
 1. ~~Status field code and enum ids~~ — resolved: `PROPERTY_64`, string type, no enum ids.
@@ -215,5 +307,9 @@ No automated test suite exists. Verification is manual against the real portals 
    of them returns `NOT_FOUND`. D-10.
 8. ~~Stage → `status` mapping is not recorded here~~ — decided 2026-09-20: **left in the BP only**.
 9. Does `REJECTED_MULTI` need its own acceptance criterion? **Unanswered.**
+10. ~~CLI knows three statuses~~ — resolved: `STATUS_KEYS` and `config/mapping.json` carry all four.
+11. Exact spelling of `უფასო ჯავშანი` in Next is unverified — no product carries it yet.
+12. Deadlock: a protected status can only be released by the side that set it. Is a manual escape
+    procedure needed, or is clearing `Interga_History` acceptable? **Unanswered.**
 
 Result codes and where they surface: `docs/CODES.md`.
