@@ -1,28 +1,33 @@
 {
   "_": [
-    "ეს ფაილი ივსება `npm run discover`-ის შედეგის მიხედვით.",
-    "null მნიშვნელობა ნიშნავს: ჯერ არ ვიცით, discovery-ის შემდეგ ჩაიწერება.",
+    "დადასტურებულია npm run discover-ით 2026-09-20, Next პორტალზე.",
     "საიდუმლო აქ არაფერია — ეს ფაილი უსაფრთხოდ იდება git-ში."
   ],
 
   "next": {
-    "_api": "crm = crm.product.* (ნაგულისხმევი) | catalog = catalog.product.* (property<ID> ფილტრით)",
+    "_api": "crm = crm.product.* | catalog = catalog.product.*",
     "api": "crm",
 
-    "_archiIdField": "Next-ის პროდუქტის ველი, სადაც Archi-ს პროდუქტის ID წერია. თუ ამ ველით ფილტრაცია ვერ მუშაობს box ვერსიაზე — იხ. SPEC, Standard-first",
-    "archiIdField": "UF_ARCHI_ID",
+    "_catalog": "დადასტურებული: CATALOG_ID 14, სექცია 28 = Kobuleti Beach Resort (მშობელი 10 = Products)",
+    "catalogId": 14,
+    "sectionId": 28,
 
-    "_statusField": "სტატუსის dropdown ველის კოდი Next-ში. მაგ: PROPERTY_145",
-    "statusField": null,
+    "_archiIdField": "PROPERTY_546 = UF_ARCHI_ID. ტიპი: სტრიქონი (S). ამჟამად 0/595 პროდუქტზეა შევსებული",
+    "archiIdField": "PROPERTY_546",
 
-    "_statusValues": "dropdown-ის მნიშვნელობების რიცხვითი ID-ები (არა ტექსტი!)",
+    "_statusField": "PROPERTY_64 = სტატუსი. ტიპი: სტრიქონი (S), არა dropdown — იწერება ტექსტი, არა ID",
+    "statusField": "PROPERTY_64",
+
+    "_statusValues": "Next-ში რეალურად გამოყენებული ტექსტები. 'reserved' დასადასტურებელია — იხ. DECISIONS D-9",
     "statusValues": {
-      "free": null,
-      "reserved": null,
-      "sold": null
+      "free": "თავისუფალი",
+      "reserved": "ფასიანი ჯავშანი",
+      "sold": "გაყიდული"
     },
 
-    "_extraFilter": "არასავალდებულო დამატებითი ფილტრი ძებნისას, მაგ: { \"CATALOG_ID\": 21 }",
+    "_otherValues": "PROPERTY_64-ში გვხვდება აგრეთვე 'ინტერესი' (2 პროდუქტი) — ჩვენს მოდელში არ შედის",
+
+    "_extraFilter": "არასავალდებულო დამატებითი ფილტრი ძებნისას",
     "extraFilter": {}
   },
 
@@ -31,6 +36,8 @@
     "productIdField": null,
 
     "_stageToStatus": "მხოლოდ დოკუმენტაციისთვის — კოდი ამას არ კითხულობს. სტადია -> სტატუსი წყდება ბიზნეს პროცესის პირობის ბლოკში (იხ. DECISIONS D-5)",
-    "stageToStatus": {}
+    "stageToStatus": {},
+
+    "_exportStatusValues": "Archi-ს ექსპორტში გვხვდება: თავისუფალი (242), გაყიდული (29), დაჯავშნილი (4), Not In Sale (550)"
   }
 }

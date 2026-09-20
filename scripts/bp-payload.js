@@ -51,7 +51,7 @@ function main() {
     });
 
     console.log(`\n${'─'.repeat(72)}`);
-    console.log(`სტატუსი: ${statusKey.toUpperCase()}  (მნიშვნელობის ID = ${statusId})`);
+    console.log(`სტატუსი: ${statusKey.toUpperCase()}  (მნიშვნელობა = "${statusId}")`);
     console.log('─'.repeat(72));
     console.log('\nპარამეტრები (სახელი -> მნიშვნელობა):\n');
     console.log(`  halt      ->  1`);
