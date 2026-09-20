@@ -1,4 +1,4 @@
-<!-- last-synced: 2026-09-18, commit: 2ad9894 -->
+<!-- last-synced: 2026-09-20, commit: 2113838 -->
 # Archi ↔ Next — პროდუქტის სტატუსის ინტეგრაცია
 
 როცა **Archi**-ს ბიტრიქსში გარიგება გარკვეულ სტადიაზე გადადის, **Next**-ის ბიტრიქსში
@@ -10,10 +10,12 @@
 
 ```
 Archi: გარიგება -> სტადია "რეზერვი"
-   └─▶ ბიზნეს პროცესი
-         └─▶ POST https://next.bitrix24.../rest/<id>/<token>/batch.json
-               cmd[find] = crm.product.list   (ეძებს Archi-ს ID-ით)
-               cmd[upd]  = crm.product.update (ცვლის სტატუსს $result[find]-ით)
+   └─▶ ბიზნეს პროცესი: status = reserved
+         └─▶ PHP Code აქტივობა
+               1. CCrmProductRow::LoadRows  — ბინა გარიგებიდან (მხოლოდ კითხვა)
+               2. POST crm.product.list     — ძებნა PROPERTY_546-ით
+               3. POST crm.product.update   — სტატუსი + ისტორია
+         └─▶ Logstat = UPDATED | REJECTED_SAME | NOT_FOUND | ...
 ```
 
 ---
@@ -24,8 +26,8 @@ Archi: გარიგება -> სტადია "რეზერვი"
 
 - Node.js **18.17+** (გამოიყენება ჩაშენებული `fetch`; გარე პაკეტები არ გვჭირდება)
 - ორივე პორტალი **box** (საკუთარ სერვერზე) — `rest` მოდული დაინსტალირებული უნდა იყოს
-- **Next**-ის შემომავალი webhook, scope-ებით: `crm`, `catalog`, `user`
-- **Archi**-ს შემომავალი webhook, scope-ით: `crm` _(არასავალდებულო — მხოლოდ discovery-სთვის)_
+- **Next**-ის შემომავალი webhook, scope-ით: **`crm`** (`catalog` და `user` არ დასჭირდა)
+- Archi-ზე webhook **არ არის საჭირო** — BP-ს PHP კოდი პირდაპირ ბიტრიქსის შიგნით მუშაობს
 
 webhook იქმნება პორტალის ადმინის უფლებით:
 
@@ -67,19 +69,22 @@ npm run discover
 ```jsonc
 {
   "next": {
-    "api": "crm",                    // ან "catalog"
-    "archiIdField": "XML_ID",        // სად წერია Archi-ს ID Next-ის მხარეს
-    "statusField": "PROPERTY_145",   // სტატუსის dropdown-ის კოდი
-    "statusValues": { "free": 44, "reserved": 45, "sold": 46 }  // ← ID-ები, არა ტექსტი
-  },
-  "archi": {
-    "productIdField": "UF_CRM_1700000000",
-    "stageToStatus": { "C1:PREPARATION": "reserved", "C1:WON": "sold", "C1:LOSE": "free" }
+    "api": "crm",
+    "catalogId": 14,
+    "sectionId": 28,                  // Kobuleti Beach Resort
+    "archiIdField": "PROPERTY_546",   // UF_ARCHI_ID — ინტეგრაციის გასაღები
+    "statusField": "PROPERTY_64",     // სტატუსი
+    "statusValues": {
+      "free": "თავისუფალი",
+      "reserved": "ფასიანი ჯავშანი",
+      "sold": "გაყიდული"
+    }
   }
 }
 ```
 
-> ❗ `statusValues`-ში **მნიშვნელობის რიცხვითი ID** იწერება. ტექსტი „რეზერვი" არ იმუშავებს.
+> ❗ სტატუსი **ტექსტად** იწერება — Next-ის ველი სტრიქონია, არა dropdown. ერთი ასოს შეცდომა
+> ჩუმად შექმნის ახალ სტატუსს, ამიტომ მნიშვნელობები მხოლოდ აქ ფიქსირდება.
 
 ### 5. ეტაპი 2 — ტესტი ბიზნეს პროცესის გარეშე
 
@@ -94,26 +99,33 @@ npm run set-status -- --product 1024 --status reserved             # რეა�
 
 ### 6. ეტაპი 3 — ბიზნეს პროცესი Archi-ში
 
-```bash
-npm run bp-payload
-```
-
-ბეჭდავს URL-ს და პარამეტრებს თითო სტატუსზე. აწყობა:
-
 1. Archi → `CRM` → `გარიგებები` → `ავტომატიზაცია` → `ბიზნეს პროცესები` → ახალი, თანმიმდევრული.
-2. **პირობის ბლოკი** სტადიების მიხედვით (`mapping.archi.stageToStatus`-ის შესაბამისად).
-3. თითო ტოტში — აქტივობა **„Webhook-ის გამოძახება"** (Вызов вебхука):
-   - URL: `.../rest/<id>/<token>/batch.json`
-   - პარამეტრები: `halt`, `cmd[find]`, `cmd[upd]` — `bp-payload`-ის გამოსავლიდან.
-4. პასუხი შეინახე ცვლადში და შეამოწმე `result_error` (ეტაპი 4).
-5. გაშვება: ავტომატიზაციის წესით საჭირო სტადიებზე.
+2. შექმენი BP ცვლადები: **`status`** (შესატანი), **`Logstat`** და **`Send_log`** (გამოსატანი).
+3. `Start` → **ცვლადის შეცვლა** (`status` = `reserved` / `sold` / `free`) → **PHP Code** → `End`.
+4. PHP Code-ში ჩასვი [docs/bp/block.php](docs/bp/block.php), პირველ ხაზზე ტოკენი.
+   `<?php` ტეგი **არ** დაამატო.
+5. შენახვა → **გამოქვეყნება** → გაშვება ავტომატიზაციის წესით საჭირო სტადიებზე.
+
+კოდი თვითონ იღებს ბინას გარიგების პროდუქტების ცხრილიდან — ცალკე ველი არ გჭირდება.
 
 ### 7. ეტაპი 4 — შეცდომების დამუშავება BP-ში
 
-- `result_error` არაცარიელია ან პროდუქტი ვერ მოიძებნა → კომენტარი გარიგებაზე
-  („პროდუქტი ვერ მოიძებნა Next-ში") + შეტყობინება პასუხისმგებელთან.
-- განმეორებითი გაშვება უსაფრთხოა — `crm.product.update` იდემპოტენტურია.
-- გარიგების ტაიმლაინი ამ არქიტექტურაში ერთადერთი ლოგია — ყოველი გაშვება იქ უნდა ჩაიწეროს.
+`Logstat` ცვლადი ყოველ გაშვებაზე ივსება ერთ-ერთი კოდით:
+
+| კოდი | რა მოხდა |
+|---|---|
+| `UPDATED` | სტატუსი შეიცვალა |
+| `REJECTED_SAME` | უკვე ასეთი იყო, დაცულია — არ გადაიწერა |
+| `REJECTED_MULTI` | გარიგებაზე 2+ ბინაა — არაფერი გაიგზავნა |
+| `UNCHANGED` | იგივე სტატუსი, ჩაწერა არ დასჭირდა |
+| `NO_DEAL` / `NO_PRODUCT` / `NOT_FOUND` | ბინა ვერ დადგინდა ან Next-ში არ არის |
+| `BAD_STATUS` | `status` ცვლადში არასწორი მნიშვნელობაა |
+| `ERROR_AUTH` / `ERROR_REST` / `ERROR_NETWORK` | ტოკენი / REST / ქსელი |
+
+თითოეული კოდის სრული ახსნა — რა ნიშნავს, სად წერია, რა ქნა: **[docs/CODES.md](docs/CODES.md)**.
+
+`REJECTED_*`-ზე და `ERROR_*`-ზე შეტყობინება პასუხისმგებელთან ჯერ არ არის აწყობილი (გადადებულია).
+`Send_log` სრულ ანგარიშს ინახავს, Next-ის მხარეს კი `Interga_History` ველი ყოველ მომართვას იწერს.
 
 ---
 
@@ -125,9 +137,27 @@ lib/statusUpdate.js  find+update batch-ის ამწყობი — სა�
 lib/env.js           .env-ის წამკითხველი და ტოკენის დამმალავი
 scripts/discover.js  ეტაპი 0 — ველების ამოღება, დოკუმენტაციის გენერაცია
 scripts/set-status.js ეტაპი 2 — ხელით ტესტი
-scripts/bp-payload.js ეტაპი 3 — BP-ში ჩასასმელი პარამეტრები
+scripts/bp-payload.js batch-ის პარამეტრები (webhook-აქტივობისთვის, ახლა აღარ გამოიყენება)
+scripts/parse-export.js  ბიტრიქსის ექსპორტის პარსერი
+scripts/import-products.js  კატალოგის იმპორტი Next-ის სექციაში
+docs/bp/block.php    PHP კოდი, რომელიც Archi-ს ბიზნეს პროცესში ზის
 config/mapping.json  ველებისა და სტატუსების შესაბამისობა (საიდუმლო არაფერია)
 ```
+
+### კატალოგის იმპორტი
+
+ბიტრიქსის პროდუქტების ექსპორტი (`.xls`, სინამდვილეში HTML ცხრილი) → Next-ის სექცია:
+
+```bash
+node scripts/parse-export.js files/PRODUCT_*.xls              # ველების ანგარიში
+node scripts/import-products.js files/PRODUCT_*.xls           # სატესტო რეჟიმი
+node scripts/import-products.js files/PRODUCT_*.xls --execute # რეალური იმპორტი
+```
+
+იდემპოტენტურია — `PROPERTY_546`-ით ამოწმებს უკვე ატვირთულს. სამიზნე სექცია:
+`config/mapping.json` → `next.sectionId`. დეტალები: [docs/IMPORT-KOBULETI.md](docs/IMPORT-KOBULETI.md).
+
+---
 
 `npm run check` — ყველა ფაილის სინტაქსის შემოწმება.
 `MAPPING_FILE=<path>` — სხვა კონფიგზე გაშვება (სატესტო ფიქსტურებისთვის).
@@ -144,6 +174,9 @@ config/mapping.json  ველებისა და სტატუსები
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | კომპონენტები და მონაცემთა ნაკადი |
 | [docs/DECISIONS.md](docs/DECISIONS.md) | რატომ არის ინტეგრაცია ასე აწყობილი (ADR) |
 | [docs/ARCHI-BP-SETUP.md](docs/ARCHI-BP-SETUP.md) | **Archi-ს მხარეს ხელით აწყობის ინსტრუქცია** |
+| [docs/IMPORT-KOBULETI.md](docs/IMPORT-KOBULETI.md) | სექცია 28-ის იმპორტი — ველების რუკა და ღია საკითხები |
+| [docs/CODES.md](docs/CODES.md) | **შედეგის კოდები — რა რას ნიშნავს და სად წერია** |
+| [docs/bp/block.php](docs/bp/block.php) | **PHP კოდი, რომელიც Archi-ს ბიზნეს პროცესში ზის** |
 | [CLAUDE.md](CLAUDE.md) | ბრძანებები, კონვენციები, წესები |
 
 ---
@@ -157,9 +190,10 @@ config/mapping.json  ველებისა და სტატუსები
 
 ## ცნობილი შეზღუდვები
 
-- **retry და ცენტრალური ლოგი არ არის.** თუ Next იმ წამს მიუწვდომელია, სტატუსი არ შეიცვლება —
-  ამიტომ ეტაპი 4 სავალდებულოა. საჭიროებისას middleware-ზე გადასვლა Next-ის მხარის შეცვლას არ მოითხოვს:
-  იგივე webhook და იგივე `batch` სერვისიდან წავა.
-- **კონკურენტულობა.** თუ ერთი პროდუქტი რამდენიმე გარიგებაშია, ბოლო გაშვებული BP გადააწერს სტატუსს.
-- თუ `crm.product.list` ვერ ფილტრავს იმ ველზე, სადაც Archi-ს ID წერია — Archi-ს ID დაიწეროს `XML_ID`-შიც,
-  ან `mapping.next.api` გადაირთოს `catalog`-ზე (`property<ID>` ფილტრი).
+- **retry არ არის.** თუ Next იმ წამს მიუწვდომელია, სტატუსი არ შეიცვლება — მხოლოდ `Logstat`-ში
+  დაფიქსირდება `ERROR_NETWORK`. საჭიროებისას middleware-ზე გადასვლა Next-ის მხარის შეცვლას არ მოითხოვს.
+- **გაყიდული ბინა რეზერვში ბრუნდება.** დაცვა მხოლოდ *იგივე* სტატუსზე მუშაობს — `გაყიდული → ფასიანი ჯავშანი`
+  ჯერჯერობით დაშვებულია (DECISIONS D-13, ღია).
+- **სიჩქარე.** Archi-ს box-იდან ერთი გაშვება 6.5–7.5 წამია, თუმცა Next ~0.4 წამში პასუხობს.
+- **550 `Not In Sale` ბინა** ჯერ არ არის Next-ში (DECISIONS D-10, ღია).
+- **ავტომატური ტესტები არ არის.** `npm run check` მხოლოდ სინტაქსს ამოწმებს.

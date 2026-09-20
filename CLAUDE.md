@@ -1,20 +1,25 @@
-<!-- last-synced: 2026-09-18, commit: 2ad9894 -->
+<!-- last-synced: 2026-09-20, commit: 2113838 -->
 # CLAUDE.md — Archi ↔ Next Bitrix24 integration
 
 ## Stack
 - Node.js >= 18.17, ESM (`"type": "module"`), **zero runtime dependencies** (built-in `fetch`)
 - Bitrix24 **box / self-hosted** on both sides. Next: `https://bitrix.nextgroup.ge`. Archi: URL TBD.
-- Transport: **inbound webhook** REST with a static token. No OAuth app, no PHP activity, no custom Bitrix module.
-- Scopes in use: `crm`, `catalog`, `user`
+- Transport: **inbound webhook** REST with a static token, called from the BP's PHP Code activity.
+  No OAuth app, no custom Bitrix module.
+- Scope in use: `crm` only (`catalog` and `user` proved unnecessary on this box)
 - No database, no long-running process. This repo is CLI tooling + documentation only.
-- The business process itself lives in the Archi portal UI and is built by hand by the owner.
+- The business process lives in the Archi portal UI and is built by hand by the owner. Its **PHP Code**
+  activity holds the production logic; `docs/bp/block.php` is the reference copy, carried across by hand.
 
 ## Commands
 ```bash
 npm run discover                                     # read field config from both portals -> docs/*-fields.md
 npm run set-status -- --product <ID> --status <key>  # write a status (free|reserved|sold)
 npm run set-status -- --product <ID> --status <key> --dry-run
-npm run bp-payload                                   # print the params to paste into the Archi BP
+npm run bp-payload                                   # batch params for a webhook-activity setup (superseded)
+node scripts/parse-export.js <file.xls>              # field report for a Bitrix product export
+node scripts/parse-export.js <file.xls> --column X   # value distribution of one column
+node scripts/import-products.js <file.xls>           # dry run; add --execute to write, --limit N to cap
 npm run check                                        # syntax check every source file
 MAPPING_FILE=<path> npm run set-status -- ...        # run against a fixture config
 ```
@@ -22,13 +27,17 @@ No test runner and no linter are configured. `npm run check` is the only automat
 
 ## Layout
 - `lib/` — reusable modules: `bitrix.js` (REST client), `statusUpdate.js` (batch builder), `env.js` (.env + redaction)
-- `scripts/` — one CLI per workflow stage: `discover.js`, `set-status.js`, `bp-payload.js`
-- `config/mapping.json` — field codes and status enum ids; committed, contains no secrets
-- `docs/` — PRD, SPEC, PLAN, ARCHITECTURE, DECISIONS, ARCHI-BP-SETUP; `docs/*-fields.md` are generated and gitignored
+- `scripts/` — `discover.js`, `set-status.js`, `bp-payload.js`, `parse-export.js`, `import-products.js`
+- `config/mapping.json` — field codes, catalog/section ids, status texts; committed, contains no secrets
+- `docs/` — PRD, SPEC, PLAN, ARCHITECTURE, DECISIONS, ARCHI-BP-SETUP, IMPORT-KOBULETI; `docs/*-fields.md` are generated and gitignored
+- `docs/bp/` — PHP for the Archi BP. `block.php` is the current one; the rest are earlier stages
+- `files/` — source exports from Archi; gitignored (commercial data)
 - `.env` — webhook URLs and credentials; **gitignored, never committed**
 
 ## Conventions
 - Status keys are exactly `free` | `reserved` | `sold` (`STATUS_KEYS` in `lib/statusUpdate.js`). Never invent a fourth.
+- Statuses are written as **text**, never as an enum id — the Next properties are string type (D-9).
+- History lines in `PROPERTY_547` are separated by `<br>`; the product card renders the field as HTML.
 - Bitrix field codes are used verbatim: `UF_ARCHI_ID`, `PROPERTY_<id>`, `UF_CRM_<id>`. No aliases, no renaming in code.
 - Every REST method name appears as a string in `scripts/`; `lib/` stays method-agnostic.
 - Code identifiers and comments in `lib/`/`scripts/`: English identifiers, Georgian explanatory comments (existing style).
@@ -44,17 +53,19 @@ Custom code is allowed only after naming the standard feature that was checked, 
 getting the owner's confirmation, and recording it as a `D-<n>` entry in `docs/DECISIONS.md`.
 
 ### MUST
-- Use `batch` whenever two or more dependent calls are needed; chain with `$result[<cmd>]`.
-- Send `halt=1` on every batch that writes, so a failed lookup cannot cause a blind update.
+- In CLI tooling, use `batch` for dependent calls and send `halt=1` so a failed lookup cannot cause a blind update.
+- In the BP, use two sequential calls instead — `batch` cannot append to an existing text field (D-11).
 - Back off and retry on `QUERY_LIMIT_EXCEEDED` and 5xx (`isRetriable` in `lib/bitrix.js`).
-- Pass a status by its **numeric enum id**, never by its label.
+- Pass a status by its label text, exactly as `config/mapping.json` spells it.
+- Send status and history in one `crm.product.update`; never write a status identical to the current one.
 - Run `set-status` with `--dry-run` before the first real write against a portal.
 - Keep secrets in `.env`; redact tokens in any printed output (`redact()` in `lib/env.js`).
 
 ### NEVER
 - Never commit a webhook URL, token, or password. Not in code, config, docs, or `.claude/settings.json`.
 - Never write to a production portal without the owner's explicit confirmation for that specific run.
-- Never assume a REST method exists on box — box installations lag the cloud. Probe first, in `discover.js`.
+- Never assume a REST method exists on box — `crm.productproperty.list` is absent here. Probe first, in `discover.js`.
+- Never write to the Archi side. The BP reads deal product rows and nothing else (D-12).
 - Never add a runtime dependency without a `D-<n>` entry; the zero-dependency property is deliberate.
 - Never edit `docs/*-fields.md` by hand — they are generated by `npm run discover`.
 
@@ -72,4 +83,7 @@ The Archi-side business process is configured manually by the owner; this repo o
 | `docs/ARCHITECTURE.md` | Components, data flow, extension points |
 | `docs/DECISIONS.md` | ADRs — why the integration is shaped this way |
 | `docs/ARCHI-BP-SETUP.md` | Step-by-step BP setup for the Archi portal (Georgian, hand-operated) |
+| `docs/IMPORT-KOBULETI.md` | The section-28 import: field map, what was skipped, what remains open |
+| `docs/CODES.md` | Every result code: meaning, where it surfaces, what to do (Georgian) |
+| `docs/bp/block.php` | Reference copy of the PHP that runs inside the Archi BP |
 | `README.md` | Install, configure, run |

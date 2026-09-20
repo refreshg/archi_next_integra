@@ -1,4 +1,4 @@
-<!-- last-synced: 2026-09-18, commit: 2ad9894 -->
+<!-- last-synced: 2026-09-20, commit: 2113838 -->
 # Decisions (ADR)
 
 ### D-1: Direct BP → webhook call, no middleware service
@@ -40,8 +40,9 @@
 - **Alternatives rejected:** Matching by `NAME` (breaks on typos, duplicates, renames). Assuming equal ids
   across portals (not true). Storing Next's id on the Archi side (a second sync problem).
 - **Consequences:** Every syncable product must have `UF_ARCHI_ID` populated; products without it produce
-  AC-4 failures. Filterability of a `UF_` field in `crm.product.list` is unverified on this box version —
-  fallbacks are `XML_ID` mirroring or `next.api: "catalog"` with a `property<id>` filter.
+  AC-4 failures. **RESOLVED 2026-09-20:** the field is `PROPERTY_546`, and `filter[PROPERTY_546]` works on
+  this box version (verified against live data). No `XML_ID` or `catalog.*` fallback is needed, although
+  the import writes the Archi id into `XML_ID` as well.
 
 ### D-5: Stage → status mapping lives in the BP, not in this repo
 - **Date:** 2026-09-18
@@ -75,7 +76,78 @@
 ### D-8: Fallback if the box BP lacks a "Webhook call" activity — OPEN
 - **Date:** 2026-09-18
 - **Context:** Box Bitrix24 versions lag the cloud. The whole design assumes the BP can make an HTTP call.
-- **Decision:** **Not made.** Pending Milestone 0 verification in the Archi BP designer.
+- **Decision:** **RESOLVED 2026-09-20 — see D-11.** The box BP exposes a "PHP Code" activity, which is used
+  instead of a webhook activity. No middleware, D-1 stands.
 - **Alternatives to evaluate, in order:** automation-rule webhook robot → custom PHP activity on the Archi box
   → middleware service (reverses D-1).
 - **Consequences:** This is the single largest risk to the one-week deadline. Verify it first.
+
+### D-9: სტატუსი სტრიქონია, არა dropdown — იწერება ტექსტი
+- **Date:** 2026-09-20
+- **Context:** PRD/SPEC აიგო დაშვებაზე, რომ Next-ის სტატუსი სიის (dropdown) ველია და ჩასაწერად
+  მნიშვნელობის რიცხვითი ID სჭირდება. `npm run discover`-მა ეს დაშვება უარყო.
+- **Decision:** `crm.product.fields` აბრუნებს `PROPERTY_64` → `propertyType: "S"` (სტრიქონი).
+  ყველა 27 თვისება სტრიქონია, სიის ტიპის ველი პორტალზე საერთოდ არ არის.
+  სტატუსი იწერება **ტექსტად**: `fields[PROPERTY_64] = "თავისუფალი"`.
+- **Alternatives rejected:** სიის ტიპზე გადაკეთება Next-ის მხარეს — არსებულ 595 პროდუქტს შეეხება
+  და მფლობელის გადასაწყვეტია, არა ჩვენი.
+- **Consequences:** ჩაწერა გამარტივდა — enum ID-ების მოპოვება აღარ გვჭირდება.
+  სამაგიეროდ **ვალიდაცია არ არსებობს**: ტექსტის შეცდომა ჩუმად შექმნის ახალ სტატუსს.
+  ამიტომ მნიშვნელობები ერთ ადგილას, `config/mapping.json`-ში ფიქსირდება და BP-ში
+  ხელით აღარ იწერება. იხ. აგრეთვე D-10.
+
+### D-10: სტატუსების ლექსიკონი ორ პორტალზე არ ემთხვევა — OPEN
+- **Date:** 2026-09-20
+- **Context:** Archi-ს ექსპორტი და Next-ის რეალური მონაცემები სხვადასხვა ლექსიკონს იყენებს.
+- **Archi:** თავისუფალი (242) · გაყიდული (29) · დაჯავშნილი (4) · **Not In Sale (550)**
+- **Next:** თავისუფალი (28) · გაყიდული (561) · **ფასიანი ჯავშანი (4)** · **ინტერესი (2)**
+- **Decision (2026-09-20):** `reserved` → **„ფასიანი ჯავშანი"** — დადასტურებულია მფლობელთან.
+  **„Not In Sale" Next-ში არ იტვირთება** — 550 ბინა წყაროში რჩება. PRD გასწორდა რეალობის მიხედვით.
+- **Open:** „ინტერესი" (2 პროდუქტი სხვა სექციებში) ვინ და როდის ცვლის — ინტეგრაციას არ ეხება.
+- **Consequences:** „Not In Sale" ბინაზე გარიგების გახსნისას ინტეგრაცია `NOT_FOUND`-ს დააბრუნებს.
+  სტატუსი არ შეიცვლება და მიზეზი `Send_log`-ში ჩაიწერება.
+
+### D-11: BP-ს "PHP კოდის" აქტივობა webhook-აქტივობის ნაცვლად — D-8 იხურება
+- **Date:** 2026-09-20
+- **Context:** D-8 ღია იყო: არსებობდა თუ არა box-ის BP დიზაინერში „Webhook-ის გამოძახება".
+- **Decision:** გამოყენებულია **„PHP Code"** აქტივობა. მოთხოვნებს `curl`-ით აგზავნის
+  თავად PHP კოდი, `docs/bp/block.php`-დან.
+- **Alternatives rejected:** webhook-აქტივობა — ერთ HTTP გამოძახებაზეა შეზღუდული და
+  პასუხის დამუშავება არ შეუძლია. middleware — აღარ დასჭირდა.
+- **Consequences:** D-2-ის `batch` აღარ არის საჭირო: PHP თანმიმდევრულად ორ გამოძახებას
+  აკეთებს (`crm.product.list` → `crm.product.update`), რაც ისტორიის დამატებას შესაძლებელს ხდის.
+  სამაგიეროდ კოდი Archi-ს BP შაბლონში ცხოვრობს და არა ამ რეპოში — `docs/bp/block.php`
+  ეტალონია, და ცვლილებისას ხელით უნდა გადაიტანო.
+
+### D-12: პროდუქტი გარიგების პოზიციებიდან, და არა ცალკე ველიდან
+- **Date:** 2026-09-20
+- **Context:** საჭირო იყო Archi-ს პროდუქტის ID. ვარაუდობდა ცალკე `UF_CRM_*` ველს.
+- **Decision:** `CCrmProductRow::LoadRows('D', $dealId)` — გარიგების საქონლის პოზიციები
+  იკითხება პირდაპირ. `PRODUCT_ID` სწორედ ის ID-ია, რომელიც Next-ში `PROPERTY_546`-შია.
+- **Alternatives rejected:** ახალი ველი გარიგებაზე — ხელით შევსებას მოითხოვდა და
+  სინქრონიზაციის მეორე წყარო გახდებოდა.
+- **Consequences:** მენეჯერს დამატებითი მოქმედება არ სჭირდება — ბინას ისედაც ამაგრებს
+  გარიგებაზე. მხოლოდ კითხვაა, Archi-ს მხარეს არაფერი იცვლება. სანაცვლოდ საჭირო გახდა
+  წესი მრავალი პროდუქტის შემთხვევისთვის — იხ. D-13.
+
+### D-13: ორი დაცვა — იგივე სტატუსი და მრავალი პროდუქტი
+- **Date:** 2026-09-20
+- **Context:** Next-ს დამოუკიდებლადაც ცვლიან სტატუსს; გარიგებას რამდენიმე ბინა შეიძლება ჰქონდეს.
+- **Decision:** (1) **იგივე სტატუსი არასდროს იწერება ხელახლა.** თუ დაცულია
+  (`ფასიანი ჯავშანი`, `გაყიდული`) → `REJECTED_SAME`; თუ არა → `UNCHANGED`.
+  (2) გარიგებაზე **ერთზე მეტი პროდუქტი** → `REJECTED_MULTI`, Next-ში არაფერი იგზავნება.
+- **Alternatives rejected:** პირველი პროდუქტის აღება (ჩუმად არასწორ ბინას შეცვლიდა);
+  იგივე მნიშვნელობის ხელახლა ჩაწერა (უაზრო ჩანაწერი ისტორიაში).
+- **Consequences:** ორივე შემთხვევა ისტორიაშიც ჩაიწერება — მცდელობა ჩანს, შედეგი არა.
+  `Logstat` ცვლადში 11 კოდიდან ერთი ჩაიწერება, რითაც BP-ში პირობის დადება შეიძლება.
+  **გადაწყდა 2026-09-20:** გაყიდულ ბინაზე რეზერვის დაწერა **რჩება დაშვებული** — იერარქია არ ინერგება.
+
+### D-14: სტატუსი BP ცვლადიდან, შედეგი ორ ცვლადში
+- **Date:** 2026-09-20
+- **Context:** სამივე ტოტისთვის ცალკე კოდის შენახვა სამჯერ მეტ შეცდომის შანსს ქმნიდა.
+- **Decision:** ერთი და იგივე PHP ბლოკი სამივე ტოტში. შესატანი — BP ცვლადი `status`
+  (`free` / `reserved` / `sold`, ქართული ტექსტიც მიიღება). გამოსატანი — `Logstat`
+  (მოკლე კოდი) და `Send_log` (სრული ანგარიში).
+- **Alternatives rejected:** სამი ცალკე ბლოკი — ყოველი ცვლილება სამჯერ უნდა გადატანილიყო.
+- **Consequences:** ტოტებს შორის სხვაობა მხოლოდ „ცვლადის შეცვლის" ბლოკშია.
+  არასწორ მნიშვნელობაზე `BAD_STATUS` და არაფერი არ იგზავნება.
