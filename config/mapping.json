@@ -18,9 +18,10 @@
     "_statusField": "PROPERTY_64 = სტატუსი. ტიპი: სტრიქონი (S), არა dropdown — იწერება ტექსტი, არა ID",
     "statusField": "PROPERTY_64",
 
-    "_statusValues": "Next-ში რეალურად გამოყენებული ტექსტები. 'reserved' დასადასტურებელია — იხ. DECISIONS D-9",
+    "_statusValues": "Next-ში ჩასაწერი ტექსტები. hold = უფასო ჯავშანი, reserved = ფასიანი ჯავშანი. სამივე ჯავშანი/გაყიდვა დაცულია (D-18)",
     "statusValues": {
       "free": "თავისუფალი",
+      "hold": "უფასო ჯავშანი",
       "reserved": "ფასიანი ჯავშანი",
       "sold": "გაყიდული"
     },
